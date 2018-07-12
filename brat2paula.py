@@ -1,6 +1,14 @@
 from os import listdir, mkdir
 from shutil import copyfile
 
+class Relation():
+
+	def __init__(self,source_brat_node_id,goal_brat_node_id,relation_name):
+
+		self.source_brat_node_id = source_brat_node_id
+		self.goal_brat_node_id = goal_brat_node_id
+		self.relation_name = relation_name
+
 def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_folder):
 
 	folder = output_folder+identifier+'/'
@@ -36,7 +44,7 @@ def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_
 	open(folder+identifier+'.tok.xml','w').write(xml)
 
 	#Create annoset file xml
-	xml = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_struct.dtd">\n<paula version="1.0">\n<header paula_id="'+identifier+'.anno" />\n<structList xmlns:xlink="http://www.w3.org/1999/xlink" type="annoSet">\n<struct id="anno_1">\n  <rel id="rel_1" xlink:href="'+identifier+'.text.xml" />\n  <rel id="rel_2" xlink:href="'+identifier+'.tok.xml" />\n</struct>\n<struct id="anno_2">\n  <rel id="rel_3" xlink:href="'+identifier+'.complements.xml" />\n  </struct>\n<struct id="anno_3">\n  <rel id="rel_4" xlink:href="'+identifier+'.embedding_entities.xml" />\n  </struct>\n</structList>\n</paula>\n'
+	xml = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_struct.dtd">\n<paula version="1.0">\n<header paula_id="'+identifier+'.anno" />\n<structList xmlns:xlink="http://www.w3.org/1999/xlink" type="annoSet">\n<struct id="anno_1">\n  <rel id="rel_1" xlink:href="'+identifier+'.text.xml" />\n  <rel id="rel_2" xlink:href="'+identifier+'.tok.xml" />\n</struct>\n<struct id="anno_2">\n  <rel id="rel_3" xlink:href="'+identifier+'.complements.xml" />\n  </struct>\n<struct id="anno_3">\n  <rel id="rel_4" xlink:href="'+identifier+'.embedding_entities.xml" />\n  </struct>\n<struct id="anno_4">\n  <rel id="rel_5" xlink:href="'+identifier+'.dependencies.xml" />\n<rel id="rel_6" xlink:href="'+identifier+'.dependency_functions.xml" />\n  </struct>\n</structList>\n</paula>\n'
 	open(folder+identifier+'.anno.xml','w').write(xml)
 
 	#Process the annotions
@@ -56,6 +64,8 @@ def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_
 	chunk_index = 1
 	chunk_indices_for_brat_node_ids = {}
 	example_text_per_brat_node_id = {}
+
+	relations_between_chunks = []
 
 	for line in open(brat_annotation_file):
 
@@ -125,11 +135,32 @@ def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_
 
 			chunk_index += 1
 
-		#We've cnountered an annotation of a chunk defined earlier
+		#We've encountered an annotation of a chunk defined earlier
 		elif 'compl-type' in annotation:
 
 			annotation_type, reference_brat_node_id, value = annotation.split()		
 			complements_xml += '<feat xlink:href="#chunk_'+str(chunk_indices_for_brat_node_ids[reference_brat_node_id])+'" value="'+value+'"/><!-- '+str(example_text_per_brat_node_id[reference_brat_node_id])+' -->\n'
+
+		#We've encountered a relation
+		elif 'AttitudeEnt:' in annotation:
+
+			goal = None
+			second_goal = None
+
+			try:
+				source, goal = annotation.split()
+			except ValueError:
+				source, goal, second_goal = annotation.split()
+
+			for g in [goal,second_goal]:
+
+				if g != None:
+
+					relation_type = g.split(':')[0]
+
+					source_node_id = source.split(':')[1]
+					goal_node_id = g.split(':')[1]
+					relations_between_chunks.append(Relation(source_node_id,goal_node_id,relation_type))
 
 
 	chunk_xml += '</markList>\n</paula>\n'
@@ -140,6 +171,23 @@ def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_
 
 	embedding_entities_xml += '</featList>\n</paula>\n'
 	open(folder+identifier+'.embedding_entities.xml','w').write(embedding_entities_xml)
+
+	#Now that all chunks are defined, go through the relations we saved an also turn them to paula xml
+	edge_xml = '<?xml version="1.0" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_rel.dtd">\n<paula version="1.1">\n<header paula_id="'+identifier+'_dep"/>\n<relList xmlns:xlink="http://www.w3.org/1999/xlink" type="dep" xml:base="'+identifier+'.chunks.xml">\n'
+	edge_definition_xml = '<?xml version="1.0" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_feat.dtd">\n<paula version="1.1">\n<header paula_id="'+identifier+'_dep_func"/>\n<featList xmlns:xlink="http://www.w3.org/1999/xlink" type="func" xml:base="'+identifier+'.dependencies.xml">\n'
+
+	for n,relation in enumerate(relations_between_chunks):
+		source_id = chunk_indices_for_brat_node_ids[relation.source_brat_node_id]
+		goal_id = chunk_indices_for_brat_node_ids[relation.goal_brat_node_id]
+
+		edge_xml += '<rel id="rel_'+str(n)+'" xlink:href="#chunk_'+str(source_id)+'" target="#chunk_'+str(goal_id)+'"/>\n'
+		edge_definition_xml += '<feat xlink:href="#rel_'+str(n)+'" value="'+relation.relation_name+'"/>\n'
+
+	edge_xml += '</relList>\n</paula>\n'
+	open(folder+identifier+'.dependencies.xml','w').write(edge_xml)
+
+	edge_definition_xml += '</featList>\n</paula>\n'
+	open(folder+identifier+'.dependency_functions.xml','w').write(edge_definition_xml)
 
 def prettify_xml(xml):
 	from lxml import etree
