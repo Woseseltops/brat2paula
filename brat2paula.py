@@ -44,7 +44,7 @@ def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_
 	open(folder+identifier+'.tok.xml','w').write(xml)
 
 	#Create annoset file xml
-	xml = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_struct.dtd">\n<paula version="1.0">\n<header paula_id="'+identifier+'.anno" />\n<structList xmlns:xlink="http://www.w3.org/1999/xlink" type="annoSet">\n<struct id="anno_1">\n  <rel id="rel_1" xlink:href="'+identifier+'.text.xml" />\n  <rel id="rel_2" xlink:href="'+identifier+'.tok.xml" />\n</struct>\n<struct id="anno_2">\n  <rel id="rel_4" xlink:href="'+identifier+'.complements.xml" />\n  <rel id="rel_3" xlink:href="'+identifier+'.complement_heads.xml" />\n</struct>\n<struct id="anno_3">\n  <rel id="rel_5" xlink:href="'+identifier+'.embedding_entities.xml" />\n  </struct>\n<struct id="anno_4">\n  <rel id="rel_6" xlink:href="'+identifier+'.dependencies.xml" />\n<rel id="rel_7" xlink:href="'+identifier+'.dependency_functions.xml" />\n  </struct>\n</structList>\n</paula>\n'
+	xml = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_struct.dtd">\n<paula version="1.0">\n<header paula_id="'+identifier+'.anno" />\n<structList xmlns:xlink="http://www.w3.org/1999/xlink" type="annoSet">\n<struct id="anno_1">\n  <rel id="rel_1" xlink:href="'+identifier+'.text.xml" />\n  <rel id="rel_2" xlink:href="'+identifier+'.tok.xml" />\n</struct>\n<struct id="anno_2">\n  <rel id="rel_4" xlink:href="'+identifier+'.complements.xml" />\n  <rel id="rel_3" xlink:href="'+identifier+'.complement_heads.xml" />\n</struct>\n<struct id="anno_3">\n  <rel id="rel_5" xlink:href="'+identifier+'.embedding_entities.xml" />\n  <rel id="rel_6" xlink:href="'+identifier+'.attitude_types.xml" />\n  <rel id="rel_7" xlink:href="'+identifier+'.speech_types.xml" />\n </struct>\n<struct id="anno_4">\n  <rel id="rel_8" xlink:href="'+identifier+'.dependencies.xml" />\n  <rel id="rel_9" xlink:href="'+identifier+'.dependency_functions.xml" />\n  </struct>\n</structList>\n</paula>\n'
 	open(folder+identifier+'.anno.xml','w').write(xml)
 
 	#Process the annotions
@@ -61,6 +61,8 @@ def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_
 	complements_xml = '<?xml version="1.0" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_feat.dtd">\n<paula version="1.1">\n<header paula_id="'+identifier+'_complements"/>\n<featList xmlns:xlink="http://www.w3.org/1999/xlink" type="complement" xml:base="'+identifier+'.chunks.xml">\n'
 	complement_heads_xml = '<?xml version="1.0" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_feat.dtd">\n<paula version="1.1">\n<header paula_id="'+identifier+'_complement_heads"/>\n<featList xmlns:xlink="http://www.w3.org/1999/xlink" type="complement_head" xml:base="'+identifier+'.chunks.xml">\n'
 	embedding_entities_xml = '<?xml version="1.0" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_feat.dtd">\n<paula version="1.1">\n<header paula_id="'+identifier+'_embedding_entities"/>\n<featList xmlns:xlink="http://www.w3.org/1999/xlink" type="embedding_entity" xml:base="'+identifier+'.chunks.xml">\n'
+	speech_types_xml = '<?xml version="1.0" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_feat.dtd">\n<paula version="1.1">\n<header paula_id="'+identifier+'_speech_types"/>\n<featList xmlns:xlink="http://www.w3.org/1999/xlink" type="speech_type" xml:base="'+identifier+'.chunks.xml">\n'
+	attitude_types_xml = '<?xml version="1.0" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_feat.dtd">\n<paula version="1.1">\n<header paula_id="'+identifier+'_attitude_types"/>\n<featList xmlns:xlink="http://www.w3.org/1999/xlink" type="attitude_type" xml:base="'+identifier+'.chunks.xml">\n'
 
 	chunk_index = 1
 	chunk_indices_for_brat_node_ids = {}
@@ -144,8 +146,21 @@ def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_
 			annotation_type, reference_brat_node_id, value = annotation.split()		
 			complements_xml += '<feat xlink:href="#chunk_'+str(chunk_indices_for_brat_node_ids[reference_brat_node_id])+'" value="'+value+'"/><!-- '+str(example_text_per_brat_node_id[reference_brat_node_id])+' -->\n'
 
+		elif 'att-verb-type' in annotation:
+
+			annotation_type, reference_brat_node_id, value = annotation.split()		
+			attitude_types_xml += '<feat xlink:href="#chunk_'+str(chunk_indices_for_brat_node_ids[reference_brat_node_id])+'" value="'+value+'"/><!-- '+str(example_text_per_brat_node_id[reference_brat_node_id])+' -->\n'		
+
+		elif 'speech-verb-type' in annotation:
+
+			annotation_type, reference_brat_node_id, value = annotation.split()		
+			speech_types_xml += '<feat xlink:href="#chunk_'+str(chunk_indices_for_brat_node_ids[reference_brat_node_id])+'" value="'+value+'"/><!-- '+str(example_text_per_brat_node_id[reference_brat_node_id])+' -->\n'		
+
 		#We've encountered a relation
-		elif 'AttitudeEnt:' in annotation or 'SpeechEnt:' in annotation or 'PerceptionEnt:' in annotation:
+		elif 'AttitudeEnt:' in annotation or 'SpeechEnt:' in annotation or 'PerceptionEnt:' in annotation or 'Attitudeverb:' in annotation:
+
+			chunk_indices_for_brat_node_ids[node_id] = chunk_index-1
+			example_text_per_brat_node_id[node_id] = example_text
 
 			goal = None
 			second_goal = None
@@ -187,6 +202,12 @@ def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_
 
 	embedding_entities_xml += '</featList>\n</paula>\n'
 	open(folder+identifier+'.embedding_entities.xml','w').write(embedding_entities_xml)
+
+	speech_types_xml += '</featList>\n</paula>\n'
+	open(folder+identifier+'.speech_types.xml','w').write(speech_types_xml)
+
+	attitude_types_xml += '</featList>\n</paula>\n'
+	open(folder+identifier+'.attitude_types.xml','w').write(attitude_types_xml)
 
 	#Now that all chunks are defined, go through the relations we saved an also turn them to paula xml
 	edge_xml = '<?xml version="1.0" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_rel.dtd">\n<paula version="1.1">\n<header paula_id="'+identifier+'_dep"/>\n<relList xmlns:xlink="http://www.w3.org/1999/xlink" type="dep" xml:base="'+identifier+'.chunks.xml">\n'
