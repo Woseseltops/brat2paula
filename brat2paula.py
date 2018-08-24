@@ -7,7 +7,7 @@ class Relation():
 
 		self.source_brat_node_id = source_brat_node_id
 		self.goal_brat_node_id = goal_brat_node_id
-		self.relation_name = relation_name
+		self.relation_name = relation_name.replace('2','')
 
 def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_folder):
 
@@ -44,7 +44,7 @@ def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_
 	open(folder+identifier+'.tok.xml','w').write(xml)
 
 	#Create annoset file xml
-	xml = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_struct.dtd">\n<paula version="1.0">\n<header paula_id="'+identifier+'.anno" />\n<structList xmlns:xlink="http://www.w3.org/1999/xlink" type="annoSet">\n<struct id="anno_1">\n  <rel id="rel_1" xlink:href="'+identifier+'.text.xml" />\n  <rel id="rel_2" xlink:href="'+identifier+'.tok.xml" />\n</struct>\n<struct id="anno_2">\n  <rel id="rel_3" xlink:href="'+identifier+'.complements.xml" />\n  </struct>\n<struct id="anno_3">\n  <rel id="rel_4" xlink:href="'+identifier+'.embedding_entities.xml" />\n  </struct>\n<struct id="anno_4">\n  <rel id="rel_5" xlink:href="'+identifier+'.dependencies.xml" />\n<rel id="rel_6" xlink:href="'+identifier+'.dependency_functions.xml" />\n  </struct>\n</structList>\n</paula>\n'
+	xml = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_struct.dtd">\n<paula version="1.0">\n<header paula_id="'+identifier+'.anno" />\n<structList xmlns:xlink="http://www.w3.org/1999/xlink" type="annoSet">\n<struct id="anno_1">\n  <rel id="rel_1" xlink:href="'+identifier+'.text.xml" />\n  <rel id="rel_2" xlink:href="'+identifier+'.tok.xml" />\n</struct>\n<struct id="anno_2">\n  <rel id="rel_4" xlink:href="'+identifier+'.complements.xml" />\n  <rel id="rel_3" xlink:href="'+identifier+'.complement_heads.xml" />\n</struct>\n<struct id="anno_3">\n  <rel id="rel_5" xlink:href="'+identifier+'.embedding_entities.xml" />\n  </struct>\n<struct id="anno_4">\n  <rel id="rel_6" xlink:href="'+identifier+'.dependencies.xml" />\n<rel id="rel_7" xlink:href="'+identifier+'.dependency_functions.xml" />\n  </struct>\n</structList>\n</paula>\n'
 	open(folder+identifier+'.anno.xml','w').write(xml)
 
 	#Process the annotions
@@ -59,6 +59,7 @@ def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_
 
 	chunk_xml = '<?xml version="1.0" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_mark.dtd">\n<paula version="1.1">\n<header paula_id="'+identifier+'_chunks"/>\n<markList xmlns:xlink="http://www.w3.org/1999/xlink" type="chunk" xml:base="'+identifier+'.tok.xml">\n'
 	complements_xml = '<?xml version="1.0" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_feat.dtd">\n<paula version="1.1">\n<header paula_id="'+identifier+'_complements"/>\n<featList xmlns:xlink="http://www.w3.org/1999/xlink" type="complement" xml:base="'+identifier+'.chunks.xml">\n'
+	complement_heads_xml = '<?xml version="1.0" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_feat.dtd">\n<paula version="1.1">\n<header paula_id="'+identifier+'_complement_heads"/>\n<featList xmlns:xlink="http://www.w3.org/1999/xlink" type="complement_head" xml:base="'+identifier+'.chunks.xml">\n'
 	embedding_entities_xml = '<?xml version="1.0" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_feat.dtd">\n<paula version="1.1">\n<header paula_id="'+identifier+'_embedding_entities"/>\n<featList xmlns:xlink="http://www.w3.org/1999/xlink" type="embedding_entity" xml:base="'+identifier+'.chunks.xml">\n'
 
 	chunk_index = 1
@@ -77,7 +78,7 @@ def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_
 			node_id, annotation = line.split('\t')
 
 		#We've encountered a chunk definition
-		if 'Complement' in annotation or 'AttitudeEnt ' in annotation or 'SpeechEnt ' in annotation or 'PerceptionEnt ' in annotation:
+		if 'Complement' in annotation or 'AttitudeEnt ' in annotation or 'SpeechEnt ' in annotation or 'PerceptionEnt ' in annotation or 'Compl-head ' in annotation:
 			chunk_indices_for_brat_node_ids[node_id] = chunk_index
 			example_text_per_brat_node_id[node_id] = example_text
 
@@ -132,6 +133,8 @@ def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_
 				embedding_entities_xml += '<feat xlink:href="#chunk_'+str(chunk_index)+'" value="speech"/><!-- '+example_text+' -->\n'				
 			elif 'PerceptionEnt' in annotation:
 				embedding_entities_xml += '<feat xlink:href="#chunk_'+str(chunk_index)+'" value="perception"/><!-- '+example_text+' -->\n'				
+			elif 'Compl-head' in annotation:
+				complement_heads_xml += '<feat xlink:href="#chunk_'+str(chunk_index)+'" value="complement_head"/><!-- '+example_text+' -->\n'				
 
 			chunk_index += 1
 
@@ -142,7 +145,7 @@ def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_
 			complements_xml += '<feat xlink:href="#chunk_'+str(chunk_indices_for_brat_node_ids[reference_brat_node_id])+'" value="'+value+'"/><!-- '+str(example_text_per_brat_node_id[reference_brat_node_id])+' -->\n'
 
 		#We've encountered a relation
-		elif 'AttitudeEnt:' in annotation:
+		elif 'AttitudeEnt:' in annotation or 'SpeechEnt:' in annotation or 'PerceptionEnt:' in annotation:
 
 			goal = None
 			second_goal = None
@@ -150,7 +153,10 @@ def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_
 			try:
 				source, goal = annotation.split()
 			except ValueError:
-				source, goal, second_goal = annotation.split()
+				try:
+					source, goal, second_goal = annotation.split()
+				except ValueError:
+					pass
 
 			for g in [goal,second_goal]:
 
@@ -162,9 +168,19 @@ def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_
 					goal_node_id = g.split(':')[1]
 					relations_between_chunks.append(Relation(source_node_id,goal_node_id,relation_type))
 
+		elif 'compl-head ' in annotation:
+
+			desc, source, goal = annotation.split()
+			source_node_id = source.split(':')[1]
+			goal_node_id = goal.split(':')[1]
+			relations_between_chunks.append(Relation(source_node_id,goal_node_id,'head'))
+
 
 	chunk_xml += '</markList>\n</paula>\n'
 	open(folder+identifier+'.chunks.xml','w').write(chunk_xml)
+
+	complement_heads_xml += '</featList>\n</paula>\n'
+	open(folder+identifier+'.complement_heads.xml','w').write(complement_heads_xml)
 
 	complements_xml += '</featList>\n</paula>\n'
 	open(folder+identifier+'.complements.xml','w').write(complements_xml)
@@ -177,17 +193,21 @@ def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_
 	edge_definition_xml = '<?xml version="1.0" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_feat.dtd">\n<paula version="1.1">\n<header paula_id="'+identifier+'_dep_func"/>\n<featList xmlns:xlink="http://www.w3.org/1999/xlink" type="func" xml:base="'+identifier+'.dependencies.xml">\n'
 
 	for n,relation in enumerate(relations_between_chunks):
-		source_id = chunk_indices_for_brat_node_ids[relation.source_brat_node_id]
-		goal_id = chunk_indices_for_brat_node_ids[relation.goal_brat_node_id]
+
+		try:
+			source_id = chunk_indices_for_brat_node_ids[relation.source_brat_node_id]
+			goal_id = chunk_indices_for_brat_node_ids[relation.goal_brat_node_id]
+		except KeyError:
+			continue
 
 		edge_xml += '<rel id="rel_'+str(n)+'" xlink:href="#chunk_'+str(source_id)+'" target="#chunk_'+str(goal_id)+'"/>\n'
 		edge_definition_xml += '<feat xlink:href="#rel_'+str(n)+'" value="'+relation.relation_name+'"/>\n'
 
 	edge_xml += '</relList>\n</paula>\n'
-	open(folder+identifier+'.dependencies.xml','w').write(edge_xml)
+	open(folder+''+identifier+'.dependencies.xml','w').write(edge_xml)
 
 	edge_definition_xml += '</featList>\n</paula>\n'
-	open(folder+identifier+'.dependency_functions.xml','w').write(edge_definition_xml)
+	open(folder+''+identifier+'.dependency_functions.xml','w').write(edge_definition_xml)
 
 def prettify_xml(xml):
 	from lxml import etree
