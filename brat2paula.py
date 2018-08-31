@@ -1,4 +1,5 @@
 from os import listdir, mkdir
+from os.path import isfile
 from shutil import copyfile
 
 class Relation():
@@ -9,7 +10,7 @@ class Relation():
 		self.goal_brat_node_id = goal_brat_node_id
 		self.relation_name = relation_name.replace('2','')
 
-def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_folder):
+def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_folder,glem_output_file = None):
 
 	folder = output_folder+identifier+'/'
 
@@ -33,18 +34,19 @@ def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_
 	xml = '<?xml version="1.0" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_mark.dtd">\n<paula version="1.0">\n<header paula_id="'+identifier+'_tok"/>\n<markList type="tok" xml:base="'+identifier+'.text.xml">'
 
 	start_index = 1
+	all_tokens = []
 
 	for n,token in enumerate(tokens):
 
 		xml+= '  <mark id="tok_'+str(n)+'" xlink:href="#xpointer(string-range(//body,\'\','+str(start_index)+','+str(len(token))+'))" /><!-- '+token+' -->\n'
-
 		start_index = start_index+ len(token)+ 1
+		all_tokens.append(token)
 
 	xml += '</markList>\n</paula>\n'
 	open(folder+identifier+'.tok.xml','w').write(xml)
 
 	#Create annoset file xml
-	xml = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_struct.dtd">\n<paula version="1.0">\n<header paula_id="'+identifier+'.anno" />\n<structList xmlns:xlink="http://www.w3.org/1999/xlink" type="annoSet">\n<struct id="anno_1">\n  <rel id="rel_1" xlink:href="'+identifier+'.text.xml" />\n  <rel id="rel_2" xlink:href="'+identifier+'.tok.xml" />\n</struct>\n<struct id="anno_2">\n  <rel id="rel_4" xlink:href="'+identifier+'.complements.xml" />\n  <rel id="rel_3" xlink:href="'+identifier+'.complement_heads.xml" />\n</struct>\n<struct id="anno_3">\n  <rel id="rel_5" xlink:href="'+identifier+'.embedding_entities.xml" />\n  <rel id="rel_6" xlink:href="'+identifier+'.attitude_types.xml" />\n  <rel id="rel_7" xlink:href="'+identifier+'.speech_types.xml" />\n </struct>\n<struct id="anno_4">\n  <rel id="rel_8" xlink:href="'+identifier+'.dependencies.xml" />\n  <rel id="rel_9" xlink:href="'+identifier+'.dependency_functions.xml" />\n  </struct>\n</structList>\n</paula>\n'
+	xml = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_struct.dtd">\n<paula version="1.0">\n<header paula_id="'+identifier+'.anno" />\n<structList xmlns:xlink="http://www.w3.org/1999/xlink" type="annoSet">\n<struct id="anno_1">\n  <rel id="rel_1" xlink:href="'+identifier+'.text.xml" />\n  <rel id="rel_2" xlink:href="'+identifier+'.tok.xml" />\n  <rel id="rel_3" xlink:href="'+identifier+'.lemmata.xml" />\n  <rel id="rel_4" xlink:href="'+identifier+'.pos.xml" />\n  </struct>\n<struct id="anno_2">\n  <rel id="rel_5" xlink:href="'+identifier+'.complements.xml" />\n  <rel id="rel_6" xlink:href="'+identifier+'.complement_heads.xml" />\n  </struct>\n<struct id="anno_3">\n  <rel id="rel_7" xlink:href="'+identifier+'.embedding_entities.xml" />\n  <rel id="rel_8" xlink:href="'+identifier+'.attitude_types.xml" />\n  <rel id="rel_9" xlink:href="'+identifier+'.speech_types.xml" />\n </struct>\n <struct id="anno_4">\n  <rel id="rel_10" xlink:href="'+identifier+'.dependencies.xml" />\n  <rel id="rel_11" xlink:href="'+identifier+'.dependency_functions.xml" />\n  </struct>\n  </structList>\n</paula>\n'
 	open(folder+identifier+'.anno.xml','w').write(xml)
 
 	#Process the annotions
@@ -230,6 +232,42 @@ def brat2paula(brat_text_file,brat_annotation_file,identifier,dtd_folder,output_
 	edge_definition_xml += '</featList>\n</paula>\n'
 	open(folder+''+identifier+'.dependency_functions.xml','w').write(edge_definition_xml)
 
+	#Also add a GLEM output layer if needed
+	if glem_output_file != None:
+	
+		lemmata_xml = '<?xml version="1.0" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_feat.dtd">\n<paula version="1.1">\n<header paula_id="'+identifier+'_lemmata"/>\n<featList xmlns:xlink="http://www.w3.org/1999/xlink" type="lemma" xml:base="'+identifier+'.tok.xml">\n'
+		pos_xml = '<?xml version="1.0" standalone="no"?>\n<!DOCTYPE paula SYSTEM "paula_feat.dtd">\n<paula version="1.1">\n<header paula_id="'+identifier+'_pos"/>\n<featList xmlns:xlink="http://www.w3.org/1999/xlink" type="pos" xml:base="'+identifier+'.tok.xml">\n'
+
+		token_index = 0
+
+		for line in open(glem_output_file):
+
+			if line[0] == '#':
+				continue
+
+			if not 'punct' in line:
+				word, lemma, annotation = line.strip().split()
+				pos = annotation.split('-')[0]			
+			else:
+				lemma = 'punct'
+				pos = 'punct'
+
+			if all_tokens[token_index] == 'ROOT':
+				lemmata_xml += '<feat id="lemma_'+str(token_index)+'" xlink:href="#tok_'+str(token_index)+'" value="ROOT"/>\n'		
+				pos_xml += '<feat  id="pos_'+str(token_index)+'" xlink:href="#tok_'+str(token_index)+'" value="ROOT"/>\n'		
+				token_index += 1
+
+			lemmata_xml += '<feat id="lemma_'+str(token_index)+'" xlink:href="#tok_'+str(token_index)+'" value="'+lemma+'"/>\n'		
+			pos_xml += '<feat  id="pos_'+str(token_index)+'" xlink:href="#tok_'+str(token_index)+'" value="'+pos+'"/>\n'		
+
+			token_index+=1
+
+		lemmata_xml += '</featList>\n</paula>\n'
+		open(folder+identifier+'.lemmata.xml','w').write(lemmata_xml)
+			
+		pos_xml += '</featList>\n</paula>\n'
+		open(folder+identifier+'.pos.xml','w').write(pos_xml)
+
 def prettify_xml(xml):
 	from lxml import etree
 	return etree.tostring(etree.fromstring(xml),pretty_print=True)
@@ -239,6 +277,9 @@ if __name__ == '__main__':
 	INPUT_FOLDER = ROOT+'input/'
 	OUTPUT_FOLDER = ROOT+'thucydides/'
 	DTD_FOLDER = ROOT+'dtds/'
+	GLEM_OUTPUT_FOLDER = '/vol/tensusers/wstoop/perspective/thucydides/lemmatized_including_combined/'
+
+	GLEM_SUFFIX = '.out.glem.wlt.txt'
 
 	for filename in listdir(INPUT_FOLDER):
 
@@ -248,5 +289,9 @@ if __name__ == '__main__':
 		identifier = filename.replace('.txt','')
 
 		print('converting',filename)
-		brat2paula(INPUT_FOLDER+filename,INPUT_FOLDER+identifier+'.ann',
-					identifier,DTD_FOLDER,OUTPUT_FOLDER)
+
+		#only convert if we have  corresponding glem file
+		if isfile(GLEM_OUTPUT_FOLDER+filename+GLEM_SUFFIX): 
+			brat2paula(INPUT_FOLDER+filename,INPUT_FOLDER+identifier+'.ann',
+						identifier,DTD_FOLDER,OUTPUT_FOLDER,
+						GLEM_OUTPUT_FOLDER+filename+GLEM_SUFFIX)
